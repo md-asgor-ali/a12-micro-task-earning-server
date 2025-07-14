@@ -71,6 +71,23 @@ async function run() {
       res.json(result);
     });
 
+    // ✅ Get Top 6 Workers by Coins
+    app.get("/top-workers", async (req, res) => {
+      try {
+        const topWorkers = await usersCollection
+          .find({ role: "Worker" })
+          .sort({ coins: -1 }) // Sort by coins (highest first)
+          .limit(6) // Only top 6
+          .project({ name: 1, photoURL: 1, coins: 1 }) // Optional: limit returned fields
+          .toArray();
+
+        res.json(topWorkers);
+      } catch (err) {
+        console.error("Failed to fetch top workers:", err);
+        res.status(500).send("Failed to fetch top workers");
+      }
+    });
+
     // ========== TASK ROUTES ==========
     app.post("/tasks", async (req, res) => {
       const task = req.body;
@@ -357,7 +374,7 @@ async function run() {
           totalWorkers,
           totalBuyers,
           totalCoins,
-          totalPaymentsCount,
+          totalPayments: totalPaymentsCount,
         });
       } catch (error) {
         res.status(500).send("Failed to fetch admin stats");
