@@ -10,14 +10,15 @@ const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors({
-  origin: ["http://localhost:5173"], // ✅ your frontend URL
-  credentials: true,
-  methods: ["GET", "POST", "PATCH", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use(
+  cors({
+    origin: ["http://localhost:5173"], // ✅ your frontend URL
+    credentials: true,
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
-
 
 // const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
 // const serviceAccount = JSON.parse(decodedKey);
@@ -26,7 +27,6 @@ const serviceAccount = require("./firebase-admin-key.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
 
 // JWT Middleware
 const verifyToken = async (req, res, next) => {
@@ -37,10 +37,10 @@ const verifyToken = async (req, res, next) => {
     return res.status(401).send("Unauthorized: No token provided");
   }
   const token = authHeader.split(" ")[1];
-    // console.log("🔑 Token Extracted:", token); // 👈 confirm token parsed
+  // console.log("🔑 Token Extracted:", token); // 👈 confirm token parsed
   try {
     const decoded = await admin.auth().verifyIdToken(token);
-  //  console.log("✅ Token Decoded:", decoded.email); // 👈 confirm decoded
+    //  console.log("✅ Token Decoded:", decoded.email); // 👈 confirm decoded
     req.user = decoded;
     next();
   } catch (error) {
@@ -48,7 +48,6 @@ const verifyToken = async (req, res, next) => {
     return res.status(403).send("Forbidden: Invalid token");
   }
 };
-
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cnz4d0t.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -92,13 +91,13 @@ async function run() {
       res.status(201).json({ insertedId: result.insertedId });
     });
 
-    app.get("/users/:email",verifyToken, async (req, res) => {
+    app.get("/users/:email", verifyToken, async (req, res) => {
       const user = await usersCollection.findOne({ email: req.params.email });
       if (!user) return res.status(404).send("User not found");
       res.json(user);
     });
 
-    app.patch("/users/:email/coins",verifyToken, async (req, res) => {
+    app.patch("/users/:email/coins", verifyToken, async (req, res) => {
       const { coins } = req.body;
       if (typeof coins !== "number")
         return res.status(400).send("Invalid coin amount");
@@ -127,7 +126,7 @@ async function run() {
     });
 
     // ========== TASK ROUTES ==========
-    app.post("/tasks",verifyToken, async (req, res) => {
+    app.post("/tasks", verifyToken, async (req, res) => {
       const task = req.body;
       const requiredFields = [
         "task_title",
@@ -140,15 +139,25 @@ async function run() {
         "buyer_email",
         "total_cost",
       ];
-      for (let f of requiredFields)
+
+      for (let f of requiredFields) {
         if (!task[f]) return res.status(400).send(`Missing field: ${f}`);
+      }
+
+      // ✅ Get buyer name using the buyer_email
+      const buyer = await usersCollection.findOne({ email: task.buyer_email });
+      if (!buyer) return res.status(404).send("Buyer not found");
+
+      task.buyer_name = buyer.name; // ✅ Add buyer name to the task
+
       task.status = "active";
       task.createdAt = new Date();
+
       const result = await tasksCollection.insertOne(task);
       res.status(201).json({ insertedId: result.insertedId });
     });
 
-    app.get("/tasks/buyer/:email",verifyToken, async (req, res) => {
+    app.get("/tasks/buyer/:email", verifyToken, async (req, res) => {
       const tasks = await tasksCollection
         .find({ buyer_email: req.params.email })
         .sort({ completion_date: -1 })
@@ -156,14 +165,14 @@ async function run() {
       res.json(tasks);
     });
 
-    app.get("/tasks/available",verifyToken, async (req, res) => {
+    app.get("/tasks/available", verifyToken, async (req, res) => {
       const tasks = await tasksCollection
         .find({ required_workers: { $gt: 0 } })
         .toArray();
       res.json(tasks);
     });
 
-    app.get("/tasks/:id",verifyToken, async (req, res) => {
+    app.get("/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       try {
         const task = await tasksCollection.findOne({ _id: new ObjectId(id) });
@@ -174,7 +183,7 @@ async function run() {
       }
     });
 
-    app.patch("/tasks/:id",verifyToken, async (req, res) => {
+    app.patch("/tasks/:id", verifyToken, async (req, res) => {
       const { task_title, task_detail, submission_info } = req.body;
       const updates = {};
       if (task_title) updates.task_title = task_title;
@@ -188,7 +197,7 @@ async function run() {
       res.json(result);
     });
 
-    app.delete("/tasks/:id",verifyToken, async (req, res) => {
+    app.delete("/tasks/:id", verifyToken, async (req, res) => {
       const task = await tasksCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
@@ -207,7 +216,7 @@ async function run() {
     });
 
     // ===== SUBMISSION ROUTES =====
-    app.post("/submissions",verifyToken, async (req, res) => {
+    app.post("/submissions", verifyToken, async (req, res) => {
       const submission = req.body;
       if (!submission.task_id || !submission.worker_email) {
         return res.status(400).send("Missing submission data");
@@ -224,25 +233,82 @@ async function run() {
       res.status(201).json({ insertedId: result.insertedId });
     });
 
-    app.get("/submissions/worker",verifyToken, async (req, res) => {
+    app.get("/submissions/worker", verifyToken, async (req, res) => {
       const { email } = req.query;
-      const submissions = await submissionsCollection
-        .find({ worker_email: email })
-        .sort({ submittedAt: -1 })
-        .toArray();
-      res.json(submissions);
+
+      try {
+        // Fetch submissions made by this worker
+        const submissions = await submissionsCollection
+          .find({ worker_email: email })
+          .sort({ submittedAt: -1 })
+          .toArray();
+
+        // Extract unique buyer emails
+        const buyerEmails = [
+          ...new Set(submissions.map((sub) => sub.buyer_email)),
+        ];
+
+        // Fetch buyer info from usersCollection
+        const buyers = await usersCollection
+          .find({ email: { $in: buyerEmails } })
+          .toArray();
+
+        // Create map: email -> name/displayName
+        const buyerMap = {};
+        buyers.forEach((buyer) => {
+          buyerMap[buyer.email] =
+            buyer.name || buyer.displayName || "Unknown Buyer";
+        });
+
+        // Enrich submissions with buyer_name
+        const enrichedSubmissions = submissions.map((sub) => ({
+          ...sub,
+          buyer_name: buyerMap[sub.buyer_email] || "Unknown Buyer",
+        }));
+
+        res.json(enrichedSubmissions);
+      } catch (err) {
+        console.error("Error fetching submissions with buyer name:", err);
+        res.status(500).send("Failed to fetch submissions");
+      }
     });
 
-    app.get("/submissions/worker/approved",verifyToken, async (req, res) => {
+    app.get("/submissions/worker/approved", verifyToken, async (req, res) => {
       const { email } = req.query;
-      const submissions = await submissionsCollection
-        .find({ worker_email: email, status: "approved" })
-        .sort({ submittedAt: -1 })
-        .toArray();
-      res.json(submissions);
+
+      try {
+        const submissions = await submissionsCollection
+          .find({ worker_email: email, status: "approved" })
+          .sort({ submittedAt: -1 })
+          .toArray();
+
+        const buyerEmails = [
+          ...new Set(submissions.map((sub) => sub.buyer_email)),
+        ];
+
+        const buyers = await usersCollection
+          .find({ email: { $in: buyerEmails } })
+          .toArray();
+
+        const buyerMap = {};
+        buyers.forEach((buyer) => {
+          buyerMap[buyer.email] =
+            buyer.name || buyer.displayName || "Unknown Buyer";
+        });
+
+        const enrichedSubmissions = submissions.map((sub) => ({
+          ...sub,
+          buyer_name: buyerMap[sub.buyer_email] || "Unknown Buyer",
+        }));
+
+        res.json(enrichedSubmissions);
+      } catch (err) {
+        console.error("Error fetching enriched submissions:", err);
+        res.status(500).send("Failed to fetch approved submissions");
+      }
     });
 
-    app.get("/worker/stats",verifyToken, async (req, res) => {
+    app.get("/worker/stats", verifyToken, async (req, res) => {
       const { email } = req.query;
       const all = await submissionsCollection
         .find({ worker_email: email })
@@ -260,7 +326,7 @@ async function run() {
     });
 
     // ===== SUBMISSION REVIEW ROUTES =====
-    app.get("/submissions/pending",verifyToken, async (req, res) => {
+    app.get("/submissions/pending", verifyToken, async (req, res) => {
       const { buyerEmail } = req.query;
       const result = await submissionsCollection
         .find({ buyer_email: buyerEmail, status: "pending" })
@@ -268,7 +334,7 @@ async function run() {
       res.json(result);
     });
 
-    app.patch("/submissions/approve/:id",verifyToken, async (req, res) => {
+    app.patch("/submissions/approve/:id", verifyToken, async (req, res) => {
       const { workerEmail, payableAmount } = req.body;
       const submissionId = req.params.id;
 
@@ -284,7 +350,7 @@ async function run() {
       res.json(result);
     });
 
-    app.patch("/submissions/reject/:id",verifyToken, async (req, res) => {
+    app.patch("/submissions/reject/:id", verifyToken, async (req, res) => {
       const submissionId = req.params.id;
       const { taskId } = req.body;
 
@@ -324,7 +390,7 @@ async function run() {
     });
 
     // ===== WITHDRAWALS =====
-    app.post("/withdrawals",verifyToken, async (req, res) => {
+    app.post("/withdrawals", verifyToken, async (req, res) => {
       const withdrawal = req.body;
       if (
         !withdrawal.worker_email ||
@@ -351,7 +417,7 @@ async function run() {
     });
 
     // ========== STRIPE PAYMENT ==========
-    app.post("/create-payment-intent",verifyToken, async (req, res) => {
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { coins, email } = req.body;
       const priceMap = { 10: 1, 150: 10, 500: 20, 1000: 35 };
       const amount = priceMap[coins];
@@ -366,7 +432,7 @@ async function run() {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
-    app.post("/payments",verifyToken, async (req, res) => {
+    app.post("/payments", verifyToken, async (req, res) => {
       const { email, coins, amount, transactionId } = req.body;
       if (!email || !coins || !amount || !transactionId)
         return res.status(400).send("Missing payment info");
@@ -379,7 +445,7 @@ async function run() {
       res.status(201).json({ insertedId: result.insertedId });
     });
 
-    app.get("/payments/:email",verifyToken, async (req, res) => {
+    app.get("/payments/:email", verifyToken, async (req, res) => {
       const result = await paymentsCollection
         .find({ email: req.params.email })
         .sort({ paidAt: -1 })
@@ -390,7 +456,7 @@ async function run() {
     // ----------- ADMIN DASHBOARD ROUTES -----------
 
     // 1. Admin-Home Stats
-    app.get("/admin/stats",verifyToken, async (req, res) => {
+    app.get("/admin/stats", verifyToken, async (req, res) => {
       try {
         const totalWorkers = await usersCollection.countDocuments({
           role: "Worker",
@@ -420,7 +486,7 @@ async function run() {
     });
 
     // 2. Withdraw Requests (Pending)
-    app.get("/withdrawals/pending",verifyToken, async (req, res) => {
+    app.get("/withdrawals/pending", verifyToken, async (req, res) => {
       try {
         const pendingRequests = await withdrawalsCollection
           .find({ status: "pending" })
@@ -433,7 +499,7 @@ async function run() {
     });
 
     // Approve Withdrawal Request and Update User Coins
-    app.patch("/withdrawals/approve/:id",verifyToken, async (req, res) => {
+    app.patch("/withdrawals/approve/:id", verifyToken, async (req, res) => {
       try {
         const withdrawalId = req.params.id;
         const withdrawal = await withdrawalsCollection.findOne({
@@ -460,7 +526,7 @@ async function run() {
     // 3. Manage Users
 
     // Get all users
-    app.get("/admin/users",verifyToken, async (req, res) => {
+    app.get("/admin/users", verifyToken, async (req, res) => {
       try {
         const users = await usersCollection.find().toArray();
         res.json(users);
@@ -470,7 +536,7 @@ async function run() {
     });
 
     // Delete user by ID
-    app.delete("/admin/users/:id",verifyToken, async (req, res) => {
+    app.delete("/admin/users/:id", verifyToken, async (req, res) => {
       try {
         const userId = req.params.id;
         const result = await usersCollection.deleteOne({
@@ -485,7 +551,7 @@ async function run() {
     });
 
     // Update user role by ID
-    app.patch("/admin/users/:id/role",verifyToken, async (req, res) => {
+    app.patch("/admin/users/:id/role", verifyToken, async (req, res) => {
       try {
         const userId = req.params.id;
         const { role } = req.body;
@@ -507,7 +573,7 @@ async function run() {
     // 4. Manage Tasks
 
     // Get all tasks
-    app.get("/admin/tasks",verifyToken, async (req, res) => {
+    app.get("/admin/tasks", verifyToken, async (req, res) => {
       try {
         const tasks = await tasksCollection.find().toArray();
         res.json(tasks);
@@ -517,7 +583,7 @@ async function run() {
     });
 
     // Delete task by ID
-    app.delete("/admin/tasks/:id",verifyToken, async (req, res) => {
+    app.delete("/admin/tasks/:id", verifyToken, async (req, res) => {
       try {
         const taskId = req.params.id;
         const task = await tasksCollection.findOne({
