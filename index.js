@@ -388,6 +388,7 @@ async function run() {
 
       res.json({ taskCount, pendingWorkers, totalPaid });
     });
+    
 
     // ===== WITHDRAWALS =====
     app.post("/withdrawals", verifyToken, async (req, res) => {
