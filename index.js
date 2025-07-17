@@ -20,10 +20,11 @@ app.use(
 );
 app.use(express.json());
 
-// const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
-// const serviceAccount = JSON.parse(decodedKey);
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
+const serviceAccount = JSON.parse(decodedKey);
 
-const serviceAccount = require("./firebase-admin-key.json");
+// const serviceAccount = require("./firebase-admin-key.json");
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -388,7 +389,7 @@ async function run() {
 
       res.json({ taskCount, pendingWorkers, totalPaid });
     });
-    
+
 
     // ===== WITHDRAWALS =====
     app.post("/withdrawals", verifyToken, async (req, res) => {
