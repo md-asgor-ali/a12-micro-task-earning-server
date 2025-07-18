@@ -52,6 +52,62 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+// ------------------------------
+// Middleware: Role-Based Access
+// ------------------------------
+const getUserRole = async (email) => {
+  const user = await getDB().collection("users").findOne({ email });
+  return user?.role || null;
+};
+
+const allowRoles = (...allowedRoles) => {
+  return async (req, res, next) => {
+    const email = req.user?.email;
+
+    if (!email) {
+      return res.status(401).json({ message: "Unauthorized: No email found" });
+    }
+
+    const role = await getUserRole(email);
+
+    if (!role) {
+      return res.status(401).json({ message: "Unauthorized: No role found" });
+    }
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({ message: "Forbidden: Role not allowed" });
+    }
+
+    req.user.role = role;
+    next();
+  };
+};
+
+// ------------------------------
+// Protected Routes
+// ------------------------------
+app.get("/api/buyer/tasks", verifyToken, allowRoles("Buyer"), async (req, res) => {
+  res.send("Buyer access granted");
+});
+
+app.get("/api/worker/submissions", verifyToken, allowRoles("Worker"), async (req, res) => {
+  res.send("Worker access granted");
+});
+
+app.delete("/api/admin/delete/:id", verifyToken, allowRoles("Admin"), async (req, res) => {
+  res.send("Admin deletion access granted");
+});
+
+// ------------------------------
+// Error Handler for Unauthorized Access (Token)
+// ------------------------------
+app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next(err);
+});
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cnz4d0t.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
