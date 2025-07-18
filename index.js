@@ -237,13 +237,24 @@ async function run() {
     });
 
     app.get("/submissions/worker", verifyToken, async (req, res) => {
-      const { email } = req.query;
+      const { email, page = 1, limit = 10 } = req.query;
+
+      const pageInt = parseInt(page);
+      const limitInt = parseInt(limit);
+      const skip = (pageInt - 1) * limitInt;
 
       try {
-        // Fetch submissions made by this worker
+        const filter = { worker_email: email };
+
+        // Count total submissions
+        const totalCount = await submissionsCollection.countDocuments(filter);
+
+        // Fetch paginated submissions
         const submissions = await submissionsCollection
-          .find({ worker_email: email })
+          .find(filter)
           .sort({ submittedAt: -1 })
+          .skip(skip)
+          .limit(limitInt)
           .toArray();
 
         // Extract unique buyer emails
@@ -269,7 +280,10 @@ async function run() {
           buyer_name: buyerMap[sub.buyer_email] || "Unknown Buyer",
         }));
 
-        res.json(enrichedSubmissions);
+        res.json({
+          submissions: enrichedSubmissions,
+          totalCount,
+        });
       } catch (err) {
         console.error("Error fetching submissions with buyer name:", err);
         res.status(500).send("Failed to fetch submissions");
