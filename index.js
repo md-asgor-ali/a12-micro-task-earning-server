@@ -12,7 +12,7 @@ const port = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"], // ✅ your frontend URL
+    origin: ["http://localhost:5173", "a12-micro-task-earning-server.vercel.app"], 
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -62,8 +62,8 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-    console.log("✅ Connected to MongoDB");
+    // await client.connect();
+    // console.log("✅ Connected to MongoDB");
 
     const db = client.db("microTaskDB");
     const usersCollection = db.collection("users");
@@ -91,6 +91,8 @@ async function run() {
       });
       res.status(201).json({ insertedId: result.insertedId });
     });
+
+    
 
     app.get("/users/:email", verifyToken, async (req, res) => {
       const user = await usersCollection.findOne({ email: req.params.email });
@@ -615,7 +617,7 @@ async function run() {
       res.send("🚀 Micro Task Dashboard Backend is Running!");
     });
 
-    app.listen(port, () => console.log(`🚀 Server listening on port ${port}`));
+    // app.listen(port, () => console.log(`🚀 Server listening on port ${port}`));
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err);
   }
