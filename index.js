@@ -12,7 +12,7 @@ const port = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "a12-micro-task-earning-server.vercel.app"], 
+    origin: ["http://localhost:5173", "https://micro-task-earning-a12.web.app"],
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -20,7 +20,9 @@ app.use(
 );
 app.use(express.json());
 
-const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
+  "utf8"
+);
 const serviceAccount = JSON.parse(decodedKey);
 
 // const serviceAccount = require("./firebase-admin-key.json");
@@ -91,8 +93,6 @@ async function run() {
       });
       res.status(201).json({ insertedId: result.insertedId });
     });
-
-    
 
     app.get("/users/:email", verifyToken, async (req, res) => {
       const user = await usersCollection.findOne({ email: req.params.email });
@@ -392,7 +392,6 @@ async function run() {
       res.json({ taskCount, pendingWorkers, totalPaid });
     });
 
-
     // ===== WITHDRAWALS =====
     app.post("/withdrawals", verifyToken, async (req, res) => {
       const withdrawal = req.body;
@@ -624,3 +623,4 @@ async function run() {
 }
 
 run().catch(console.dir);
+module.exports = app;
