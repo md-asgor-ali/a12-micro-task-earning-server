@@ -156,6 +156,17 @@ async function run() {
       res.json(user);
     });
 
+    app.get('/users/role/:email', async (req, res) => {
+  const email = req.params.email;
+  const user = await usersCollection.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  res.json({ role: user.role }); // role should be 'Buyer', 'Admin', or 'Worker'
+});
+
     app.patch("/users/:email/coins", verifyToken, async (req, res) => {
       const { coins } = req.body;
       if (typeof coins !== "number")
@@ -224,12 +235,35 @@ async function run() {
       res.json(tasks);
     });
 
-    app.get("/tasks/available", verifyToken, async (req, res) => {
-      const tasks = await tasksCollection
-        .find({ required_workers: { $gt: 0 } })
-        .toArray();
-      res.json(tasks);
-    });
+app.get("/tasks/available", verifyToken, async (req, res) => {
+  try {
+    const workerEmail = req.query.email;
+    if (!workerEmail) return res.status(400).send("Worker email required");
+
+    // Get task_ids that this user already submitted
+    const submitted = await submissionsCollection
+      .find({ worker_email: workerEmail })
+      .project({ task_id: 1 })
+      .toArray();
+
+    const submittedTaskIds = submitted.map((s) => new ObjectId(s.task_id));
+
+    // Fetch tasks that are still open and not submitted by this user
+    const availableTasks = await tasksCollection
+      .find({
+        required_workers: { $gt: 0 },
+        _id: { $nin: submittedTaskIds },
+      })
+      .sort({ completion_date: 1 })
+      .toArray();
+
+    res.json(availableTasks);
+  } catch (err) {
+    console.error("Error fetching available tasks:", err);
+    res.status(500).send("Failed to fetch tasks");
+  }
+});
+
 
     app.get("/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
