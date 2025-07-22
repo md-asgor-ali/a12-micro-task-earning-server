@@ -86,23 +86,38 @@ const allowRoles = (...allowedRoles) => {
 // ------------------------------
 // Protected Routes
 // ------------------------------
-app.get("/api/buyer/tasks", verifyToken, allowRoles("Buyer"), async (req, res) => {
-  res.send("Buyer access granted");
-});
+app.get(
+  "/api/buyer/tasks",
+  verifyToken,
+  allowRoles("Buyer"),
+  async (req, res) => {
+    res.send("Buyer access granted");
+  }
+);
 
-app.get("/api/worker/submissions", verifyToken, allowRoles("Worker"), async (req, res) => {
-  res.send("Worker access granted");
-});
+app.get(
+  "/api/worker/submissions",
+  verifyToken,
+  allowRoles("Worker"),
+  async (req, res) => {
+    res.send("Worker access granted");
+  }
+);
 
-app.delete("/api/admin/delete/:id", verifyToken, allowRoles("Admin"), async (req, res) => {
-  res.send("Admin deletion access granted");
-});
+app.delete(
+  "/api/admin/delete/:id",
+  verifyToken,
+  allowRoles("Admin"),
+  async (req, res) => {
+    res.send("Admin deletion access granted");
+  }
+);
 
 // ------------------------------
 // Error Handler for Unauthorized Access (Token)
 // ------------------------------
 app.use((err, req, res, next) => {
-  if (err.name === 'UnauthorizedError') {
+  if (err.name === "UnauthorizedError") {
     return res.status(401).json({ message: "Unauthorized" });
   }
   next(err);
@@ -156,16 +171,16 @@ async function run() {
       res.json(user);
     });
 
-    app.get('/users/role/:email', async (req, res) => {
-  const email = req.params.email;
-  const user = await usersCollection.findOne({ email });
+    app.get("/users/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await usersCollection.findOne({ email });
 
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
-  }
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
 
-  res.json({ role: user.role }); // role should be 'Buyer', 'Admin', or 'Worker'
-});
+      res.json({ role: user.role }); // role should be 'Buyer', 'Admin', or 'Worker'
+    });
 
     app.patch("/users/:email/coins", verifyToken, async (req, res) => {
       const { coins } = req.body;
@@ -235,35 +250,34 @@ async function run() {
       res.json(tasks);
     });
 
-app.get("/tasks/available", verifyToken, async (req, res) => {
-  try {
-    const workerEmail = req.query.email;
-    if (!workerEmail) return res.status(400).send("Worker email required");
+    app.get("/tasks/available", verifyToken, async (req, res) => {
+      try {
+        const workerEmail = req.query.email;
+        if (!workerEmail) return res.status(400).send("Worker email required");
 
-    // Get task_ids that this user already submitted
-    const submitted = await submissionsCollection
-      .find({ worker_email: workerEmail })
-      .project({ task_id: 1 })
-      .toArray();
+        // Get task_ids that this user already submitted
+        const submitted = await submissionsCollection
+          .find({ worker_email: workerEmail })
+          .project({ task_id: 1 })
+          .toArray();
 
-    const submittedTaskIds = submitted.map((s) => new ObjectId(s.task_id));
+        const submittedTaskIds = submitted.map((s) => new ObjectId(s.task_id));
 
-    // Fetch tasks that are still open and not submitted by this user
-    const availableTasks = await tasksCollection
-      .find({
-        required_workers: { $gt: 0 },
-        _id: { $nin: submittedTaskIds },
-      })
-      .sort({ completion_date: 1 })
-      .toArray();
+        // Fetch tasks that are still open and not submitted by this user
+        const availableTasks = await tasksCollection
+          .find({
+            required_workers: { $gt: 0 },
+            _id: { $nin: submittedTaskIds },
+          })
+          .sort({ completion_date: 1 })
+          .toArray();
 
-    res.json(availableTasks);
-  } catch (err) {
-    console.error("Error fetching available tasks:", err);
-    res.status(500).send("Failed to fetch tasks");
-  }
-});
-
+        res.json(availableTasks);
+      } catch (err) {
+        console.error("Error fetching available tasks:", err);
+        res.status(500).send("Failed to fetch tasks");
+      }
+    });
 
     app.get("/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
